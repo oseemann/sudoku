@@ -1,18 +1,18 @@
 #!/opt/python2.5/bin/python
 
 from __future__ import with_statement
+import sys
 
 def value_on_row(puzzle, pos, x):
-    leftmost = pos-pos%9
-    return x in puzzle[leftmost:leftmost+9]
+    return x in puzzle[pos-pos%9:pos-pos%9+9]
 
 def value_on_col(puzzle, pos, x):
     return x in puzzle[pos%9::9]
 
 def value_in_cell(puzzle, pos, x):
     topleft = pos - pos%3
-    if topleft%27 >= 9: topleft = topleft - 9
-    if topleft%27 >= 9: topleft = topleft - 9
+    if topleft%27 >= 9: topleft -= 9
+    if topleft%27 >= 9: topleft -= 9
 
     if x in puzzle[topleft   :topleft+3   ]: return True
     if x in puzzle[topleft+9 :topleft+9+3 ]: return True
@@ -30,22 +30,18 @@ def legal_candidate(puzzle, pos, x):
     return True
 
 def build_candidates(puzzle):
-    pos = 0
-    cand_list = []
+    candidates = []
     for pos in range(9*9):
-        clist = []
+        cand_list = []
         if puzzle[pos] == ' ':
-            x = 1
-            while x <= 9:
-                if legal_candidate(puzzle, pos, str(x)):
-                   clist.append(str(x))
-                x += 1
+            for digit in "123456789":
+                if legal_candidate(puzzle, pos, digit):
+                   cand_list.append(digit)
         else:
-            clist.append(puzzle[pos])
-        cand_list.append(clist)
-        pos += 1
+            cand_list.append(puzzle[pos])
+        candidates.append(cand_list)
 
-    return cand_list
+    return candidates
 
 def eliminate(puzzle, candidates):
     elc = 1
@@ -66,8 +62,17 @@ def print_puzzle(puzzle):
     for i in range(9):
         print " ".join(puzzle[i*9:i*9+9])
 
+def print_candidates(puzzle):
+    print "Candidates:"
+    for i in range(81):
+        nCand = len(puzzle[i])
+        print "".join(puzzle[i]), " " * (9-nCand),
+        if i % 9 == 8:
+            print ""
+
 def solve(puzzle):
     cand = build_candidates(puzzle)
+    print_candidates(cand)
     solution = eliminate(puzzle, cand)
     print_puzzle(solution)
 
@@ -79,7 +84,11 @@ def readPuzzle(filename):
     return puzzle
     
 def main():
-    puzzle = readPuzzle("p1")
+    if len(sys.argv) < 2:
+        print "No puzzle file name given"
+        return
+    filename = sys.argv[1]
+    puzzle = readPuzzle(filename)
     solve(puzzle)
 
 if __name__ == '__main__':
