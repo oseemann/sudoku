@@ -116,12 +116,13 @@ def find_solutions(puzzle, cand):
         if s == puzzle:
             break
        # print_puzzle(s)
-        if verify(s):
+        if verify(s) and ret.count(s) == 0:
             ret.append(s)
         else:
             sols = find_solutions(s, c)
-            if len(sols)>0:
-                ret.extend(sols)
+            for X in sols:
+                if ret.count(X) == 0:
+                    ret.append(X)
     return ret
 
 def solve(puzzle):
