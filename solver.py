@@ -63,7 +63,6 @@ def eliminate(puzzle, candidates):
                             puzzle[pos] = cand_list[0]
                         elc += 1
 
-    # if not solved, find pos with shorted candidate list, then try again with each of those candidates
     return (puzzle, candidates)
 
 def print_puzzle(puzzle):
@@ -84,8 +83,8 @@ def print_candidates(puzzle):
             print ""
 
 def gen_guesses(puzzle, candidates):
+# find pos with smallest number of candidates
     ret = []
-    # find pos with smallest number of candidates
     pos = -1
     pos_len = 9
     for cand_list in candidates:
@@ -108,11 +107,9 @@ def find_solutions(puzzle, cand):
     ret = []
     guess_list = gen_guesses(puzzle, cand)
     for guess in guess_list:
-        porig = copy.deepcopy(puzzle)
-        (s, c) = eliminate(porig, guess)
+        (s, c) = eliminate(copy.deepcopy(puzzle), guess)
         if s == puzzle:
-            break
-       # print_puzzle(s)
+            break # could not eliminate further
         if verify(s) and ret.count(s) == 0:
             ret.append(s)
         else:
@@ -124,9 +121,8 @@ def find_solutions(puzzle, cand):
 
 def solve(puzzle):
     cand = build_candidates(puzzle)
-    print_candidates(cand)
+    #print_candidates(cand)
     (solution, cand) = eliminate(puzzle, cand)
-    print_candidates(cand)
     if verify(solution):
         print_puzzle(solution)
         return
