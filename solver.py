@@ -2,6 +2,7 @@
 
 from __future__ import with_statement
 import sys
+import re
 import copy
 
 def value_on_row(puzzle, pos, x):
@@ -72,7 +73,7 @@ def print_puzzle(puzzle):
     if verify(puzzle):
         print "Correct!"
     else:
-        print "Wrong!"
+        print "Wrong! Uh-oh.."
 
 def print_candidates(puzzle):
     print "Candidates:"
@@ -81,9 +82,6 @@ def print_candidates(puzzle):
         print "".join(puzzle[i]), " " * (9-nCand),
         if i % 9 == 8:
             print ""
-
-def solved(puzzle):
-    return puzzle.count(' ') == 0
 
 def gen_guesses(puzzle, candidates):
     ret = []
@@ -101,10 +99,9 @@ def gen_guesses(puzzle, candidates):
     
     for x in candidates[pos]:
         guess = copy.deepcopy(candidates)
-        guess[pos] = list(x)
+        guess[pos] = [x]
         ret.append(guess)
     
-    # return x number of guesses for each candidate
     return ret 
 
 def find_solutions(puzzle, cand):
@@ -130,7 +127,7 @@ def solve(puzzle):
     print_candidates(cand)
     (solution, cand) = eliminate(puzzle, cand)
     print_candidates(cand)
-    if solved(solution):
+    if verify(solution):
         print_puzzle(solution)
         return
     else:
@@ -150,9 +147,17 @@ def verify(puzzle):
 
 def readPuzzle(filename):
     puzzle = []
+    linecheck = re.compile('^[ 0-9]{9}$')
     with open(filename) as f:
         for line in f:
-            puzzle += list(line.strip('\n'))
+            line = line.strip('\n')
+            if linecheck.match(line):
+                puzzle += list(line)
+            else:
+                raise "linecheck"
+    if len(puzzle) != 81:
+        print len(puzzle)
+        raise "lengthcheck"
     return puzzle
     
 def main():
