@@ -5,27 +5,15 @@ import sys
 import re
 import copy
 
-def value_on_row(puzzle, pos, x):
-    return x in puzzle[pos-pos%9:pos-pos%9+9]
-
-def value_on_col(puzzle, pos, x):
-    return x in puzzle[pos%9::9]
-
-def value_in_cell(puzzle, pos, x):
-    topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
-    if x in puzzle[topleft   :topleft+3   ]: return True
-    if x in puzzle[topleft+9 :topleft+9+3 ]: return True
-    if x in puzzle[topleft+18:topleft+18+3]: return True
-
-    return False
-  
 def legal_candidate(puzzle, pos, x):
-    if value_on_row(puzzle, pos, x):
+    if x in puzzle[pos-pos%9:pos-pos%9+9]: # value on row
         return False
-    if value_on_col(puzzle, pos, x):
+    if x in puzzle[pos%9::9]:  # value on column
         return False
-    if value_in_cell(puzzle, pos, x):
-        return False
+    topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
+    if x in puzzle[topleft   :topleft+3   ]: return False
+    if x in puzzle[topleft+9 :topleft+9+3 ]: return False
+    if x in puzzle[topleft+18:topleft+18+3]: return False
     return True
 
 def build_candidates(puzzle):
