@@ -1,5 +1,10 @@
 #!/opt/python2.5/bin/python
 
+# timings: p6 0.57 sec
+#          p7 0.47 sec
+#          p2 0.35 sec
+#          p1 0.19 sec
+
 from __future__ import with_statement
 import sys
 import re
@@ -7,16 +12,16 @@ import copy
 
 def legal_candidate(puzzle, pos, x):
     # value on row?
-    if [x] in puzzle[pos-pos%9:pos-pos%9+9]: 
+    if x in puzzle[pos-pos%9:pos-pos%9+9]: 
         return False
     # value on column?
-    if [x] in puzzle[pos%9::9]:  
+    if x in puzzle[pos%9::9]:  
         return False
     # value in 3x3 cell?
     topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
-    if [x] in puzzle[topleft   :topleft+3   ]: return False
-    if [x] in puzzle[topleft+9 :topleft+9+3 ]: return False
-    if [x] in puzzle[topleft+18:topleft+18+3]: return False
+    if x in puzzle[topleft   :topleft+3   ]: return False
+    if x in puzzle[topleft+9 :topleft+9+3 ]: return False
+    if x in puzzle[topleft+18:topleft+18+3]: return False
     # not found
     return True
 
@@ -26,7 +31,7 @@ def build_candidates(puzzle):
         cand_list = []
         if puzzle[pos] == ' ':
             for digit in "123456789":
-                if legal_candidate(puzzle, pos, digit):
+                if legal_candidate(puzzle, pos, [digit]):
                    cand_list.append(digit)
         else:
             cand_list.append(puzzle[pos])
@@ -41,7 +46,7 @@ def eliminate(candidates):
         for pos in range(9*9):
             if len(candidates[pos]) > 1:
                 for digit in candidates[pos]:
-                    if not legal_candidate(candidates, pos, digit):
+                    if not legal_candidate(candidates, pos, [digit]):
                         candidates[pos].remove(digit)
                         elc += 1
 
@@ -71,6 +76,8 @@ def gen_guesses(candidates):
             pos = candidates.index(cand_list)
         if pos_len == 2:
             break
+    if pos == -1:
+        return ret
     
     for x in candidates[pos]:
         guess = copy.deepcopy(candidates)
@@ -83,9 +90,9 @@ def find_solutions(puzzle, cand):
     ret = []
     guess_list = gen_guesses(cand)
     for guess in guess_list:
+        if guess == puzzle:
+            continue # could not eliminate further
         newcand = eliminate(guess)
-        if newcand == puzzle:
-            break # could not eliminate further
         if verify(newcand) and ret.count(newcand) == 0:
             ret.append(newcand)
         else:
@@ -98,7 +105,7 @@ def find_solutions(puzzle, cand):
 def solve(puzzle):
     cand = build_candidates(puzzle)
     cand = eliminate(cand)
-    print_candidates(cand)
+    #print_candidates(cand)
     if verify(cand):
         print_candidates(cand)
         return
@@ -113,7 +120,7 @@ def verify(puzzle):
             return False
         digit = puzzle[pos][0]
         puzzle[pos] = []
-        if not legal_candidate(puzzle, pos, digit):
+        if not legal_candidate(puzzle, pos, [digit]):
             puzzle[pos] = [digit]
             return False
         puzzle[pos] = [digit]
