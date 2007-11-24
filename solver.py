@@ -6,14 +6,18 @@ import re
 import copy
 
 def legal_candidate(puzzle, pos, x):
-    if x in puzzle[pos-pos%9:pos-pos%9+9]: # value on row
+    # value on row?
+    if [x] in puzzle[pos-pos%9:pos-pos%9+9]: 
         return False
-    if x in puzzle[pos%9::9]:  # value on column
+    # value on column?
+    if [x] in puzzle[pos%9::9]:  
         return False
+    # value in 3x3 cell?
     topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
-    if x in puzzle[topleft   :topleft+3   ]: return False
-    if x in puzzle[topleft+9 :topleft+9+3 ]: return False
-    if x in puzzle[topleft+18:topleft+18+3]: return False
+    if [x] in puzzle[topleft   :topleft+3   ]: return False
+    if [x] in puzzle[topleft+9 :topleft+9+3 ]: return False
+    if [x] in puzzle[topleft+18:topleft+18+3]: return False
+    # not found
     return True
 
 def build_candidates(puzzle):
@@ -30,44 +34,31 @@ def build_candidates(puzzle):
 
     return candidates
 
-def eliminate(puzzle, candidates):
+def eliminate(candidates):
     elc = 1
     while elc > 0:
         elc = 0
         for pos in range(9*9):
-            cand_list = candidates[pos]
-            if len(cand_list)==1:
-                if puzzle[pos] == ' ':
-                    puzzle[pos] = cand_list[0]
-                    elc += 1
-            else:
-                for digit in cand_list:
-                    if not legal_candidate(puzzle, pos, digit):
-                        cand_list.remove(digit)
-                        if len(cand_list) == 1:
-                            puzzle[pos] = cand_list[0]
+            if len(candidates[pos]) > 1:
+                for digit in candidates[pos]:
+                    if not legal_candidate(candidates, pos, digit):
+                        candidates[pos].remove(digit)
                         elc += 1
 
-    return (puzzle, candidates)
-
-def print_puzzle(puzzle):
-    print "Solution:"
-    for i in range(9):
-        print " ".join(puzzle[i*9:i*9+9])
-    if verify(puzzle):
-        print "Correct!"
-    else:
-        print "Wrong! Uh-oh.."
+    return candidates
 
 def print_candidates(puzzle):
-    print "Candidates:"
+    tab = 9 # max len(candidates[i])+1
+    if verify(puzzle):
+        print "Solution:"
+        tab = 0
     for i in range(81):
         nCand = len(puzzle[i])
-        print "".join(puzzle[i]), " " * (9-nCand),
+        print "".join(puzzle[i]), " " * (tab-nCand),
         if i % 9 == 8:
             print ""
 
-def gen_guesses(puzzle, candidates):
+def gen_guesses(candidates):
 # find pos with smallest number of candidates
     ret = []
     pos = -1
@@ -85,20 +76,20 @@ def gen_guesses(puzzle, candidates):
         guess = copy.deepcopy(candidates)
         guess[pos] = [x]
         ret.append(guess)
-    
+
     return ret 
 
 def find_solutions(puzzle, cand):
     ret = []
-    guess_list = gen_guesses(puzzle, cand)
+    guess_list = gen_guesses(cand)
     for guess in guess_list:
-        (s, c) = eliminate(copy.deepcopy(puzzle), guess)
-        if s == puzzle:
+        newcand = eliminate(guess)
+        if newcand == puzzle:
             break # could not eliminate further
-        if verify(s) and ret.count(s) == 0:
-            ret.append(s)
+        if verify(newcand) and ret.count(newcand) == 0:
+            ret.append(newcand)
         else:
-            sols = find_solutions(s, c)
+            sols = find_solutions(cand, newcand)
             for X in sols:
                 if ret.count(X) == 0:
                     ret.append(X)
@@ -106,24 +97,26 @@ def find_solutions(puzzle, cand):
 
 def solve(puzzle):
     cand = build_candidates(puzzle)
-    #print_candidates(cand)
-    (solution, cand) = eliminate(puzzle, cand)
-    if verify(solution):
-        print_puzzle(solution)
+    cand = eliminate(cand)
+    print_candidates(cand)
+    if verify(cand):
+        print_candidates(cand)
         return
     else:
-        solutions = find_solutions(solution, cand)
+        solutions = find_solutions(puzzle, cand)
         for sol in solutions:
-            print_puzzle(sol)
-            
+            print_candidates(sol)
+
 def verify(puzzle):
     for pos in range(9*9):
-        digit = puzzle[pos]
-        puzzle[pos] = ' '
-        if not legal_candidate(puzzle, pos, digit):
-            puzzle[pos] = digit
+        if len(puzzle[pos]) != 1:
             return False
-        puzzle[pos] = digit
+        digit = puzzle[pos][0]
+        puzzle[pos] = []
+        if not legal_candidate(puzzle, pos, digit):
+            puzzle[pos] = [digit]
+            return False
+        puzzle[pos] = [digit]
     return True
 
 def readPuzzle(filename):
