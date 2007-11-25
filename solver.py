@@ -40,15 +40,15 @@ def build_candidates(puzzle):
     return candidates
 
 def eliminate(candidates):
-    elc = 1
-    while elc > 0:
-        elc = 0
+    elimination_counter = 1
+    while elimination_counter > 0:
+        elimination_counter = 0
         for pos in range(9*9):
             if len(candidates[pos]) > 1:
                 for digit in candidates[pos]:
                     if not legal_candidate(candidates, pos, [digit]):
                         candidates[pos].remove(digit)
-                        elc += 1
+                        elimination_counter += 1
 
     return candidates
 
