@@ -28,13 +28,13 @@ def legal_candidate(puzzle, pos, x):
 def build_candidates(puzzle):
     candidates = []
     for pos in range(9*9):
-        cand_list = []
+        cand_list = ''
         if puzzle[pos] == ' ':
             for digit in "123456789":
-                if legal_candidate(puzzle, pos, [digit]):
-                   cand_list.append(digit)
+                if legal_candidate(puzzle, pos, digit):
+                   cand_list += digit
         else:
-            cand_list.append(puzzle[pos])
+            cand_list += puzzle[pos]
         candidates.append(cand_list)
 
     return candidates
@@ -46,9 +46,11 @@ def eliminate(candidates):
         for pos in range(9*9):
             if len(candidates[pos]) > 1:
                 for digit in candidates[pos]:
-                    if not legal_candidate(candidates, pos, [digit]):
-                        candidates[pos].remove(digit)
+                    if not legal_candidate(candidates, pos, digit):
+                        candidates[pos] = candidates[pos].replace(digit,'')
                         elimination_counter += 1
+                        if len(candidates[pos]) == 1:
+                            break
 
     return candidates
 
@@ -81,7 +83,7 @@ def gen_guesses(candidates):
     
     for x in candidates[pos]:
         guess = copy.deepcopy(candidates)
-        guess[pos] = [x]
+        guess[pos] = x
         ret.append(guess)
 
     return ret 
@@ -89,6 +91,7 @@ def gen_guesses(candidates):
 def find_solutions(puzzle, cand):
     ret = []
     guess_list = gen_guesses(cand)
+    x1 = len([c for c in cand if len(c)==1])
     for guess in guess_list:
         if guess == puzzle:
             continue # could not eliminate further
@@ -105,7 +108,6 @@ def find_solutions(puzzle, cand):
 def solve(puzzle):
     cand = build_candidates(puzzle)
     cand = eliminate(cand)
-    #print_candidates(cand)
     if verify(cand):
         print_candidates(cand)
         return
@@ -118,12 +120,12 @@ def verify(puzzle):
     for pos in range(9*9):
         if len(puzzle[pos]) != 1:
             return False
-        digit = puzzle[pos][0]
-        puzzle[pos] = []
-        if not legal_candidate(puzzle, pos, [digit]):
-            puzzle[pos] = [digit]
+        digit = puzzle[pos]
+        puzzle[pos] = ' '
+        if not legal_candidate(puzzle, pos, digit):
+            puzzle[pos] = digit
             return False
-        puzzle[pos] = [digit]
+        puzzle[pos] = digit
     return True
 
 def readPuzzle(filename):
@@ -140,14 +142,22 @@ def readPuzzle(filename):
         print len(puzzle)
         raise "lengthcheck"
     return puzzle
+
+def runTop95():
+    print "Running Top95 Benchmark.."
+    with open('top95.txt') as f:
+        for line in f:
+            puzzle = list(line.replace('.',' '))
+            solve(puzzle)
     
 def main():
     if len(sys.argv) < 2:
-        print "No puzzle file name given"
-        return
-    filename = sys.argv[1]
-    puzzle = readPuzzle(filename)
-    solve(puzzle)
+        # no puzzle file name given, run Top95
+        runTop95()
+    else:
+        filename = sys.argv[1]
+        puzzle = readPuzzle(filename)
+        solve(puzzle)
 
 if __name__ == '__main__':
     main()
