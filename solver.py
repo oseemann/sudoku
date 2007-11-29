@@ -12,17 +12,31 @@ import copy
 
 def legal_candidate(puzzle, pos, x):
     # value on row?
+    saved = puzzle[pos]
+    puzzle[pos] = ' '
     if x in puzzle[pos-pos%9:pos-pos%9+9]: 
+        puzzle[pos] = saved
         return False
+
     # value on column?
     if x in puzzle[pos%9::9]:  
+        puzzle[pos] = saved
         return False
+
     # value in 3x3 cell?
     topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
-    if x in puzzle[topleft   :topleft+3   ]: return False
-    if x in puzzle[topleft+9 :topleft+9+3 ]: return False
-    if x in puzzle[topleft+18:topleft+18+3]: return False
+    if x in puzzle[topleft   :topleft+3   ]:
+        puzzle[pos] = saved
+        return False
+    if x in puzzle[topleft+9 :topleft+9+3 ]:
+        puzzle[pos] = saved
+        return False
+    if x in puzzle[topleft+18:topleft+18+3]:
+        puzzle[pos] = saved
+        return False
+
     # not found
+    puzzle[pos] = saved
     return True
 
 def build_candidates(puzzle):
@@ -49,10 +63,9 @@ def eliminate(candidates):
                     if not legal_candidate(candidates, pos, digit):
                         candidates[pos] = candidates[pos].replace(digit,'')
                         elimination_counter += 1
-                        if len(candidates[pos]) == 1:
-                            break
-
-    return candidates
+                        if len(candidates[pos]) == 0:
+                            return True
+    return False
 
 def print_candidates(puzzle):
     tab = 9 # max len(candidates[i])+1
@@ -80,7 +93,7 @@ def gen_guesses(candidates):
             break
     if pos == -1:
         return ret
-    
+ 
     for x in candidates[pos]:
         guess = copy.deepcopy(candidates)
         guess[pos] = x
@@ -88,18 +101,17 @@ def gen_guesses(candidates):
 
     return ret 
 
-def find_solutions(puzzle, cand):
+
+def find_solutions(cand):
     ret = []
     guess_list = gen_guesses(cand)
-    x1 = len([c for c in cand if len(c)==1])
     for guess in guess_list:
-        if guess == puzzle:
-            continue # could not eliminate further
-        newcand = eliminate(guess)
-        if verify(newcand) and ret.count(newcand) == 0:
-            ret.append(newcand)
+        if eliminate(guess) == True: # unsolvable?
+            continue
+        if verify(guess) and ret.count(guess) == 0:
+            ret.append(guess)
         else:
-            sols = find_solutions(cand, newcand)
+            sols = find_solutions(guess)
             for X in sols:
                 if ret.count(X) == 0:
                     ret.append(X)
@@ -107,25 +119,23 @@ def find_solutions(puzzle, cand):
 
 def solve(puzzle):
     cand = build_candidates(puzzle)
-    cand = eliminate(cand)
+    eliminate(cand)
     if verify(cand):
         print_candidates(cand)
         return
     else:
-        solutions = find_solutions(puzzle, cand)
+        solutions = find_solutions(cand)
         for sol in solutions:
             print_candidates(sol)
 
-def verify(puzzle):
+def verify(puzzle): 
+    # check if any field has more than one or less than one candidate
+    if len([c for c in puzzle if len(c)!=1]) > 0:
+        return False
+    # check if all positions are valid
     for pos in range(9*9):
-        if len(puzzle[pos]) != 1:
+        if not legal_candidate(puzzle, pos, puzzle[pos]):
             return False
-        digit = puzzle[pos]
-        puzzle[pos] = ' '
-        if not legal_candidate(puzzle, pos, digit):
-            puzzle[pos] = digit
-            return False
-        puzzle[pos] = digit
     return True
 
 def readPuzzle(filename):
