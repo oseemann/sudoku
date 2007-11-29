@@ -8,7 +8,6 @@
 from __future__ import with_statement
 import sys
 import re
-import copy
 
 def legal_candidate(puzzle, pos, x):
     # value on row?
@@ -95,12 +94,11 @@ def gen_guesses(candidates):
         return ret
  
     for x in candidates[pos]:
-        guess = copy.deepcopy(candidates)
+        guess = candidates[:]
         guess[pos] = x
         ret.append(guess)
 
     return ret 
-
 
 def find_solutions(cand):
     ret = []
