@@ -10,33 +10,24 @@ import sys
 import re
 
 def legal_candidate(puzzle, pos, x):
-    # value on row?
+    def legal(puzzle, pos, x):
+        # value on row?
+        if x in puzzle[pos-pos%9:pos-pos%9+9]: return False
+        # value on column?
+        if x in puzzle[pos%9::9]: return False
+        # value in 3x3 cell?
+        topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
+        if x in puzzle[topleft   :topleft+3   ]: return False
+        if x in puzzle[topleft+9 :topleft+9+3 ]: return False
+        if x in puzzle[topleft+18:topleft+18+3]: return False
+        # not found
+        return True
+
     saved = puzzle[pos]
     puzzle[pos] = ' '
-    if x in puzzle[pos-pos%9:pos-pos%9+9]: 
-        puzzle[pos] = saved
-        return False
-
-    # value on column?
-    if x in puzzle[pos%9::9]:  
-        puzzle[pos] = saved
-        return False
-
-    # value in 3x3 cell?
-    topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
-    if x in puzzle[topleft   :topleft+3   ]:
-        puzzle[pos] = saved
-        return False
-    if x in puzzle[topleft+9 :topleft+9+3 ]:
-        puzzle[pos] = saved
-        return False
-    if x in puzzle[topleft+18:topleft+18+3]:
-        puzzle[pos] = saved
-        return False
-
-    # not found
+    ret = legal(puzzle, pos, x)
     puzzle[pos] = saved
-    return True
+    return ret
 
 def build_candidates(puzzle):
     candidates = []
@@ -96,14 +87,15 @@ def gen_guesses(candidates):
     for x in candidates[pos]:
         guess = candidates[:]
         guess[pos] = x
-        ret.append(guess)
+        ret.append([guess, pos])
 
     return ret 
 
 def find_solutions(cand):
     ret = []
     guess_list = gen_guesses(cand)
-    for guess in guess_list:
+    for entry in guess_list:
+        guess = entry[0]
         if eliminate(guess) == True: # unsolvable?
             continue
         if verify(guess) and ret.count(guess) == 0:
@@ -122,6 +114,8 @@ def solve(puzzle):
         print_candidates(cand)
         return
     else:
+        print "Solving puzzle:"
+        print_candidates(cand)
         solutions = find_solutions(cand)
         for sol in solutions:
             print_candidates(sol)
