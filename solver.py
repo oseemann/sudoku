@@ -31,7 +31,7 @@ def legal_candidate(puzzle, pos, x):
 
 def build_candidates(puzzle):
     candidates = []
-    for pos in range(9*9):
+    for pos in xrange(9*9):
         cand_list = ''
         if puzzle[pos] == ' ':
             for digit in "123456789":
@@ -47,7 +47,7 @@ def eliminate(candidates):
     elimination_counter = 1
     while elimination_counter > 0:
         elimination_counter = 0
-        for pos in range(9*9):
+        for pos in xrange(9*9):
             if len(candidates[pos]) > 1:
                 for digit in candidates[pos]:
                     if not legal_candidate(candidates, pos, digit):
@@ -62,7 +62,7 @@ def print_candidates(puzzle):
     if verify(puzzle):
         print "Solution:"
         tab = 0
-    for i in range(81):
+    for i in xrange(81):
         nCand = len(puzzle[i])
         print "".join(puzzle[i]), " " * (tab-nCand),
         if i % 9 == 8:
@@ -83,10 +83,15 @@ def gen_guesses(candidates):
             break
     if pos == -1:
         return ret
- 
-    for x in candidates[pos]:
+    # create list of candidates from that position by
+    # copying candidate and setting individial guess values
+    for digit in candidates[pos]:
         guess = candidates[:]
-        guess[pos] = x
+        guess[pos] = digit
+        # eliminate other occurences of guessed value in row, col, cell
+        #candidates[pos] = candidates[pos].replace(digit,'')
+        eliminate(guess)
+
         ret.append([guess, pos])
 
     return ret 
@@ -125,7 +130,7 @@ def verify(puzzle):
     if len([c for c in puzzle if len(c)!=1]) > 0:
         return False
     # check if all positions are valid
-    for pos in range(9*9):
+    for pos in xrange(9*9):
         if not legal_candidate(puzzle, pos, puzzle[pos]):
             return False
     return True
