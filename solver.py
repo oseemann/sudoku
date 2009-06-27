@@ -82,7 +82,7 @@ def gen_guesses(candidates):
         if pos_len == 2:
             break
     if pos == -1:
-        return ret
+        raise StopIteration()
     # create list of candidates from that position by
     # copying candidate and setting individial guess values
     for digit in candidates[pos]:
@@ -92,14 +92,13 @@ def gen_guesses(candidates):
         #candidates[pos] = candidates[pos].replace(digit,'')
         eliminate(guess)
 
-        ret.append([guess, pos])
-
-    return ret 
+        #ret.append([guess, pos])
+        yield [guess, pos]
+    raise StopIteration()
 
 def find_solutions(cand):
     ret = []
-    guess_list = gen_guesses(cand)
-    for entry in guess_list:
+    for entry in gen_guesses(cand):
         guess = entry[0]
         if eliminate(guess) == True: # unsolvable?
             continue
@@ -152,7 +151,7 @@ def readPuzzle(filename):
 
 def runTop95():
     print "Running Top95 Benchmark.."
-    with open('top95.txt') as f:
+    with open('puzzles/top95.txt') as f:
         for line in f:
             puzzle = list(line.replace('.',' '))
             solve(puzzle)

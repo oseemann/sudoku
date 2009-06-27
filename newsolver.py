@@ -174,7 +174,7 @@ def readPuzzle(filename):
 
 def runTop95():
     print "Running Top95 Benchmark.."
-    with open('top95.txt') as f:
+    with open('puzzles/top95.txt') as f:
         for line in f:
             puzzle = list(line.replace('.',' '))
             solvePuzzle(puzzle)
