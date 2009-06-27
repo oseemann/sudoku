@@ -10,13 +10,70 @@ from __future__ import with_statement
 import sys
 import re
 import pdb
+import copy
 import unittest
 
+# Exceptions 
+class InvalidPuzzle: pass
+
+class Field:
+    def __init__(self, index, value, puzzle):
+        self.index = index
+        self.puzzle = puzzle
+        self.value = value 
+        self.candidates = set()
+        if not self.solved():
+            self.candidates = set('123456789')
+
+    def __str__(self):
+        return self.value
+
+    def solved(self):
+        return self.value != ' '
+
+    def elim2(self):
+        if self.solved():
+            return 0
+        # for each remaining candidate, check if any of the other
+        # free fields in this line, column, cell can accept the value
+        # if not, then it is the solution
+        for c in self.candidates:
+            if self.puzzle.zoneCheck(self.index, c):
+                self.value = c
+                self.candidates.clear()
+                self.puzzle.zoneClear(self.index, c)
+                #print "Elim2: %d -> %c" % (self.index, c)
+                return 1
+        return 0
+    
+    def elim1(self): 
+        if self.value != ' ':
+            return 0
+        # check which of the candidates are still valid,
+        # i.e. not taken on the line, column and cell
+        foo = self.candidates.copy()
+        zv = self.puzzle.zoneValues(self.index)
+        self.candidates = self.candidates - zv
+        if len(self.candidates) == 1:
+            self.value = self.candidates.pop()
+            self.puzzle.zoneClear(self.index, self.value)
+            return 1
+        elif len(self.candidates) == 0:
+            #pdb.set_trace()
+            raise InvalidPuzzle
+        return 0
+
 class Puzzle:
-    def __init__(self, buf):
+    def __init__(self, buf=''):
         self.fields = []
-        for i in xrange(9*9):
-            self.fields.append(Field(i, buf[i], self))
+        if len(buf):
+            for i in xrange(9*9):
+                self.fields.append(Field(i, buf[i], self))
+
+    def copy(self):
+        c = Puzzle()
+        c.fields = copy.deepcopy(self.fields)
+        return c
 
     def __iter__(self):
         for f in self.fields:
@@ -75,87 +132,76 @@ class Puzzle:
         for f in self.column(pos):
             f.candidates.discard(char)
 
-    def printme(self):
-        print "".join([str(f) for f in self.fields])
-
     def pretty(self):
         for i in range(9):
             print " ".join([str(f) for f in self.fields[i*9 : i*9+9]])
 
-class Field:
-    def __init__(self, index, value, puzzle):
-        self.index = index
-        self.puzzle = puzzle
-        self.value = value 
-        self.candidates = set()
-        if self.value == ' ':
-            self.candidates = set('123456789')
-
-    def __str__(self):
-        return self.value
-
     def solved(self):
-        return self.value == ' '
+        for field in self.fields:
+            if not field.solved():
+                return False
+        return True
+
+    def elim1(self):
+        solved = 0
+        for field in self.fields:
+            solved += field.elim1()        
+        #print "elim1: %d" % solved
+        return solved
 
     def elim2(self):
-        if self.value != ' ':
-            return 0
-        # for each remaining candidate, check if any of the other
-        # free fields in this line, column, cell can accept the value
-        # if not, then it is the solution
-        for c in self.candidates:
-            if self.puzzle.zoneCheck(self.index, c):
-                self.value = c
-                self.candidates.clear()
-                self.puzzle.zoneClear(self.index, c)
-                print "Elim2: %d -> %c" % (self.index, c)
-                return 1
-        return 0
-    
-    def solve(self): 
-        if self.value != ' ':
-            return 0
-        # check which of the candidates are still valid,
-        # i.e. not taken on the line, column and cell
-        foo = self.candidates.copy()
-        zv = self.puzzle.zoneValues(self.index)
-        self.candidates = self.candidates - zv
-        if len(self.candidates) == 1:
-            self.value = self.candidates.pop()
-            self.puzzle.zoneClear(self.index, self.value)
-            return 1
-        elif len(self.candidates) == 0:
-            pdb.set_trace()
-            raise 'Bug!'
-        return 0
+        solved = 0
+        for field in self.fields:
+            solved += field.elim2()
+        #print "elim2: %d" % solved
+        return solved
+
+    def findTrialField(self):
+        f = None
+        for field in self.fields:
+            if field.solved():
+                continue
+            if f == None or len(field.candidates) < len(f.candidates):
+                f = field
+        return f
+
+    def solve(self):
+        while True:
+            solved = 0
+            solved += self.elim1()
+            solved += self.elim2()
+            if solved == 0:
+                break
+        if self.solved():
+            return self
+        else:
+            #pdb.set_trace()
+            # find field with the lowest number of candidates 
+            field = self.findTrialField()
+            # if lowest number of candidates is zero, abort, wrong path
+            if field == None or len(field.candidates) == 0:
+                return None
+            # for each such candidate, set it as a solution and try to solve
+            c = field.candidates.copy()
+            field.candidates.clear()
+            for value in c:
+                print "Trying value %s for field %d" % (value, field.index)
+                field.value = value
+                C = self.copy()
+                try:
+                    C = C.solve()
+                    if C != None:
+                        return C
+                except InvalidPuzzle:
+                    print "Invalid!"
+                del C
+        return None
 
 def solvePuzzle(puzzle_lines):
     puzzle = Puzzle(puzzle_lines)
-    while True:
-        solved = 0
-        for field in puzzle:
-            solved += field.solve()        
-        print "-" * 50
-        puzzle.pretty()
-        for field in puzzle:
-            solved += field.elim2()        
-        print " " * 50
-        puzzle.pretty()
-        if solved > 0:
-            print "Solved %d fields" % solved
-        else:
-            break
-        #pdb.set_trace()
-
-def verify(puzzle): 
-    # check if any field has more than one or less than one candidate
-    if len([c for c in puzzle if len(c)!=1]) > 0:
-        return False
-    # check if all positions are valid
-    for pos in xrange(9*9):
-        if not legal_candidate(puzzle, pos, puzzle[pos]):
-            return False
-    return True
+    solution = puzzle.solve()
+    if solution: 
+       solution.pretty()
 
 def readPuzzle(filename):
     puzzle = []
@@ -173,6 +219,7 @@ def readPuzzle(filename):
     return puzzle
 
 def runTop95():
+    pdb.set_trace()
     print "Running Top95 Benchmark.."
     with open('puzzles/top95.txt') as f:
         for line in f:
@@ -182,7 +229,7 @@ def runTop95():
 def main():
     if len(sys.argv) < 2:
         # no puzzle file name given, run Top95
-        if False:
+        if True:
             runTop95()
         else:
             unittest.main()
