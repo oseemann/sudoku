@@ -1,11 +1,6 @@
 #!/usr/bin/python
 # vim:set smartindent:
 
-# timings: p6 0.57 sec
-#          p7 0.47 sec
-#          p2 0.35 sec
-#          p1 0.19 sec
-
 from __future__ import with_statement
 import sys
 import re
@@ -76,56 +71,33 @@ class Puzzle:
             yield f
         raise StopIteration()
 
-    def row(self, index):
-        """ returns all fields in the same row as the given index """
-        return self.fields[index-index%9 : index-index%9+9]
-
-    def column(self, index):
-        """ returns all fields in the same column as the given index """
-        return self.fields[index%9 :: 9]
-
     def cell(self, index):
         """ returns all fields in the same 3x3 cell as the given index """
         topleft = index - index%3 - 9*(((index-index%3)%27)/9)
-        r = self.fields[topleft   :topleft+3]   \
-          + self.fields[topleft+9 :topleft+9+3] \
-          + self.fields[topleft+18:topleft+18+3]
-        return r
+        return self.fields[topleft   :topleft+3]   \
+             + self.fields[topleft+9 :topleft+9+3] \
+             + self.fields[topleft+18:topleft+18+3]
+
+    def zone(self, index):
+        return [f for f in \
+                  self.fields[index-index%9 : index-index%9+9] \
+                + self.fields[index%9::9] \
+                + self.cell(index) \
+                if f.index != index]
     
     def zoneValues(self, pos):
-        return set([f.value for f in 
-                    self.cell(pos) + self.row(pos) + self.column(pos)
-                    if f.value != ' ' and f.index != pos])
+        return set([f.value for f in self.zone(pos) if f.value != ' '])
     
     def zoneCheck(self, pos, char):
         """ returns True when no other empty field in the zone of pos has
             the value 'char' as a candidate """
-        x = set()
-        for f in self.row(pos):
-            if f.index != pos and f.value == ' ':
-                x = x | f.candidates
-        if char not in x:
-            return True
-        x.clear()
-        for f in self.column(pos):
-            if f.index != pos and f.value == ' ':
-                x = x | f.candidates
-        if char not in x:
-            return True
-        x.clear()
-        for f in self.cell(pos):
-            if f.index != pos and f.value == ' ':
-                x = x | f.candidates
-        if char not in x:
-            return True
-        return False
+        for f in self.zone(pos):
+            if f.value == ' ' and char in f.candidates:
+                return False
+        return True
 
     def zoneClear(self, pos, char):
-        for f in self.cell(pos):
-            f.candidates.discard(char)
-        for f in self.row(pos):
-            f.candidates.discard(char)
-        for f in self.column(pos):
+        for f in self.zone(pos):
             f.candidates.discard(char)
 
     def pretty(self):
@@ -142,14 +114,12 @@ class Puzzle:
         solved = 0
         for field in self.fields:
             solved += field.elim1()        
-        #print "elim1: %d" % solved
         return solved
 
     def elim2(self):
         solved = 0
         for field in self.fields:
             solved += field.elim2()
-        #print "elim2: %d" % solved
         return solved
 
     def findTrialField(self):
@@ -215,7 +185,7 @@ def readPuzzle(filename):
     return puzzle
 
 def runTop95():
-    print "Running Top10 Benchmark.."
+    print "Running Top95 Benchmark.."
     with open('puzzles/top10.txt') as f:
         i = 0
         for line in f:
