@@ -1,4 +1,4 @@
-#!/opt/python2.5/bin/python
+#!/usr/bin/python
 # vim:set smartindent:
 
 # timings: p6 0.57 sec
@@ -32,8 +32,6 @@ class Field:
         return self.value != ' '
 
     def elim2(self):
-        if self.solved():
-            return 0
         # for each remaining candidate, check if any of the other
         # free fields in this line, column, cell can accept the value
         # if not, then it is the solution
@@ -47,11 +45,10 @@ class Field:
         return 0
     
     def elim1(self): 
-        if self.value != ' ':
+        if self.solved():
             return 0
         # check which of the candidates are still valid,
         # i.e. not taken on the line, column and cell
-        foo = self.candidates.copy()
         zv = self.puzzle.zoneValues(self.index)
         self.candidates = self.candidates - zv
         if len(self.candidates) == 1:
@@ -59,7 +56,6 @@ class Field:
             self.puzzle.zoneClear(self.index, self.value)
             return 1
         elif len(self.candidates) == 0:
-            #pdb.set_trace()
             raise InvalidPuzzle
         return 0
 
@@ -105,19 +101,19 @@ class Puzzle:
         """ returns True when no other empty field in the zone of pos has
             the value 'char' as a candidate """
         x = set()
-        for f in self.cell(pos):
-            if f.index != pos and f.value == ' ':
-                x = x | f.candidates
-        if char not in x:
-            return True
-        x = set()
         for f in self.row(pos):
             if f.index != pos and f.value == ' ':
                 x = x | f.candidates
         if char not in x:
             return True
-        x = set()
+        x.clear()
         for f in self.column(pos):
+            if f.index != pos and f.value == ' ':
+                x = x | f.candidates
+        if char not in x:
+            return True
+        x.clear()
+        for f in self.cell(pos):
             if f.index != pos and f.value == ' ':
                 x = x | f.candidates
         if char not in x:
@@ -175,7 +171,6 @@ class Puzzle:
         if self.solved():
             return self
         else:
-            #pdb.set_trace()
             # find field with the lowest number of candidates 
             field = self.findTrialField()
             # if lowest number of candidates is zero, abort, wrong path
@@ -185,7 +180,7 @@ class Puzzle:
             c = field.candidates.copy()
             field.candidates.clear()
             for value in c:
-                print "Trying value %s for field %d" % (value, field.index)
+                #print "Trying value %s for field %d" % (value, field.index)
                 field.value = value
                 C = self.copy()
                 try:
@@ -193,7 +188,8 @@ class Puzzle:
                     if C != None:
                         return C
                 except InvalidPuzzle:
-                    print "Invalid!"
+                    #print "Invalid!"
+                    pass
                 del C
         return None
 
@@ -219,12 +215,15 @@ def readPuzzle(filename):
     return puzzle
 
 def runTop95():
-    pdb.set_trace()
-    print "Running Top95 Benchmark.."
-    with open('puzzles/top95.txt') as f:
+    print "Running Top10 Benchmark.."
+    with open('puzzles/top10.txt') as f:
+        i = 0
         for line in f:
             puzzle = list(line.replace('.',' '))
+            i += 1
+            print "%d ..." % i
             solvePuzzle(puzzle)
+
     
 def main():
     if len(sys.argv) < 2:
