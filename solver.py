@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# vim:set smartindent:
+# vim: set ts=4 sw=4 smartindent:
 
 from __future__ import with_statement
 import sys
@@ -16,9 +16,9 @@ class Field:
         self.index = index
         self.puzzle = puzzle
         self.value = value 
-        self.candidates = set()
+        self.candidates = ''
         if not self.solved():
-            self.candidates = set('123456789')
+            self.candidates = '123456789'
 
     def __str__(self):
         return self.value
@@ -33,9 +33,8 @@ class Field:
         for c in self.candidates:
             if self.puzzle.zoneCheck(self.index, c):
                 self.value = c
-                self.candidates.clear()
+                self.candidates = ''
                 self.puzzle.zoneClear(self.index, c)
-                #print "Elim2: %d -> %c" % (self.index, c)
                 return 1
         return 0
     
@@ -45,9 +44,12 @@ class Field:
         # check which of the candidates are still valid,
         # i.e. not taken on the line, column and cell
         zv = self.puzzle.zoneValues(self.index)
-        self.candidates = self.candidates - zv
+        for c in zv:
+            if c in self.candidates:
+                self.candidates = self.candidates.replace(c,'')
         if len(self.candidates) == 1:
-            self.value = self.candidates.pop()
+            self.value = self.candidates
+            self.candidates = ''
             self.puzzle.zoneClear(self.index, self.value)
             return 1
         elif len(self.candidates) == 0:
@@ -71,34 +73,53 @@ class Puzzle:
             yield f
         raise StopIteration()
 
+    def row(self, index):
+        """ returns all fields in the same row as the given index """
+        return self.fields[index-index%9 : index-index%9+9]
+
+    def column(self, index):
+        """ returns all fields in the same column as the given index """
+        return self.fields[index%9 :: 9]
+
     def cell(self, index):
         """ returns all fields in the same 3x3 cell as the given index """
         topleft = index - index%3 - 9*(((index-index%3)%27)/9)
-        return self.fields[topleft   :topleft+3]   \
-             + self.fields[topleft+9 :topleft+9+3] \
-             + self.fields[topleft+18:topleft+18+3]
-
-    def zone(self, index):
-        return [f for f in \
-                  self.fields[index-index%9 : index-index%9+9] \
-                + self.fields[index%9::9] \
-                + self.cell(index) \
-                if f.index != index]
-    
+        r = self.fields[topleft   :topleft+3]   \
+          + self.fields[topleft+9 :topleft+9+3] \
+          + self.fields[topleft+18:topleft+18+3]
+        return r
+ 
     def zoneValues(self, pos):
-        return set([f.value for f in self.zone(pos) if f.value != ' '])
+        r = ''
+        L = [f.value for f in 
+                    self.cell(pos) + self.row(pos) + self.column(pos)
+                    if f.value != ' ' and f.index != pos]
+        for l in L:
+            if l not in r:
+                r += l
+        return r
     
     def zoneCheck(self, pos, char):
         """ returns True when no other empty field in the zone of pos has
             the value 'char' as a candidate """
-        for f in self.zone(pos):
-            if f.value == ' ' and char in f.candidates:
-                return False
-        return True
+        x = "".join([f.candidates for f in self.row(pos) if f.index!=pos and f.value==' '])
+        if char not in x:
+            return True
+        x = "".join([f.candidates for f in self.column(pos) if f.index!=pos and f.value==' '])
+        if char not in x:
+            return True
+        x = "".join([f.candidates for f in self.cell(pos) if f.index!=pos and f.value==' '])
+        if char not in x:
+            return True
+        return False
 
     def zoneClear(self, pos, char):
-        for f in self.zone(pos):
-            f.candidates.discard(char)
+        for f in self.cell(pos):
+            f.candidates = f.candidates.replace(char, '')
+        for f in self.row(pos):
+            f.candidates = f.candidates.replace(char, '')
+        for f in self.column(pos):
+            f.candidates = f.candidates.replace(char, '')
 
     def pretty(self):
         for i in range(9):
@@ -147,8 +168,8 @@ class Puzzle:
             if field == None or len(field.candidates) == 0:
                 return None
             # for each such candidate, set it as a solution and try to solve
-            c = field.candidates.copy()
-            field.candidates.clear()
+            c = field.candidates
+            field.candidates = ''
             for value in c:
                 #print "Trying value %s for field %d" % (value, field.index)
                 field.value = value
@@ -186,7 +207,7 @@ def readPuzzle(filename):
 
 def runTop95():
     print "Running Top95 Benchmark.."
-    with open('puzzles/top10.txt') as f:
+    with open('puzzles/top95.txt') as f:
         i = 0
         for line in f:
             puzzle = list(line.replace('.',' '))
@@ -194,51 +215,13 @@ def runTop95():
             print "%d ..." % i
             solvePuzzle(puzzle)
 
-    
 def main():
     if len(sys.argv) < 2:
-        # no puzzle file name given, run Top95
-        if True:
-            runTop95()
-        else:
-            unittest.main()
+		runTop95()
     else:
         filename = sys.argv[1]
         puzzle = readPuzzle(filename)
         solvePuzzle(puzzle)
-
-class PuzzleTest(unittest.TestCase):
-    P1 = '38 6     '\
-         '  9      '\
-         ' 2  3 51 '\
-         '     5   '\
-         ' 3  1  6 '\
-         '   4     '\
-         ' 17 5  8 '\
-         '      9  '\
-         '     7 32'
-
-    def testZoneValues(self):
-        p1 = Puzzle(self.P1)
-        self.assertEqual(p1.zoneValues(0), set('8692'))
-        self.assertEqual(p1.zoneValues(1), set('362319'))
-        self.assertEqual(p1.zoneValues(2), set('386927'))
-        self.assertEqual(p1.zoneValues(3), set('3843'))
-        self.assertEqual(p1.zoneValues(4), set('386315'))
-        self.assertEqual(p1.zoneValues(8), set('386512'))
-        self.assertEqual(p1.zoneValues(27), set('35'))
-        self.assertEqual(p1.zoneValues(40), set('365435'))
-        self.assertEqual(p1.zoneValues(45), set('34'))
-        self.assertEqual(p1.zoneValues(79), set('289761'))
-        self.assertEqual(p1.zoneValues(80), set('3987'))
-
-    def testZoneCandidates(self):
-        p1 = Puzzle(self.P1)
-        self.assertEqual(p1.zoneCheck(2, '1'), False)
-        self.assertEqual(p1.zoneCheck(2, '2'), False)
-        self.assertEqual(p1.zoneCheck(2, '5'), False)
-        #self.assertEqual(p1.zoneCheck(12, '5'), True)
-        #self.assertEqual(p1.zoneCheck(65, '3'), True)
 
 if __name__ == '__main__':
     main()
