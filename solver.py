@@ -1,138 +1,173 @@
-#!/opt/python2.5/bin/python
-
-# timings: p6 0.57 sec
-#          p7 0.47 sec
-#          p2 0.35 sec
-#          p1 0.19 sec
+#!/usr/bin/python
+# vim:set smartindent:
 
 from __future__ import with_statement
 import sys
 import re
+import pdb
+import copy
+import unittest
 
-def legal_candidate(puzzle, pos, x):
-    def legal(puzzle, pos, x):
-        # value on row?
-        if x in puzzle[pos-pos%9:pos-pos%9+9]: return False
-        # value on column?
-        if x in puzzle[pos%9::9]: return False
-        # value in 3x3 cell?
-        topleft = pos - pos%3 - 9*(((pos-pos%3)%27)/9)
-        if x in puzzle[topleft   :topleft+3   ]: return False
-        if x in puzzle[topleft+9 :topleft+9+3 ]: return False
-        if x in puzzle[topleft+18:topleft+18+3]: return False
-        # not found
+# Exceptions 
+class InvalidPuzzle: pass
+
+class Field:
+    def __init__(self, index, value, puzzle):
+        self.index = index
+        self.puzzle = puzzle
+        self.value = value 
+        self.candidates = set()
+        if not self.solved():
+            self.candidates = set('123456789')
+
+    def __str__(self):
+        return self.value
+
+    def solved(self):
+        return self.value != ' '
+
+    def elim2(self):
+        # for each remaining candidate, check if any of the other
+        # free fields in this line, column, cell can accept the value
+        # if not, then it is the solution
+        for c in self.candidates:
+            if self.puzzle.zoneCheck(self.index, c):
+                self.value = c
+                self.candidates.clear()
+                self.puzzle.zoneClear(self.index, c)
+                #print "Elim2: %d -> %c" % (self.index, c)
+                return 1
+        return 0
+    
+    def elim1(self): 
+        if self.solved():
+            return 0
+        # check which of the candidates are still valid,
+        # i.e. not taken on the line, column and cell
+        zv = self.puzzle.zoneValues(self.index)
+        self.candidates = self.candidates - zv
+        if len(self.candidates) == 1:
+            self.value = self.candidates.pop()
+            self.puzzle.zoneClear(self.index, self.value)
+            return 1
+        elif len(self.candidates) == 0:
+            raise InvalidPuzzle
+        return 0
+
+class Puzzle:
+    def __init__(self, buf=''):
+        self.fields = []
+        if len(buf):
+            for i in xrange(9*9):
+                self.fields.append(Field(i, buf[i], self))
+
+    def copy(self):
+        c = Puzzle()
+        c.fields = copy.deepcopy(self.fields)
+        return c
+
+    def __iter__(self):
+        for f in self.fields:
+            yield f
+        raise StopIteration()
+
+    def cell(self, index):
+        """ returns all fields in the same 3x3 cell as the given index """
+        topleft = index - index%3 - 9*(((index-index%3)%27)/9)
+        return self.fields[topleft   :topleft+3]   \
+             + self.fields[topleft+9 :topleft+9+3] \
+             + self.fields[topleft+18:topleft+18+3]
+
+    def zone(self, index):
+        return [f for f in \
+                  self.fields[index-index%9 : index-index%9+9] \
+                + self.fields[index%9::9] \
+                + self.cell(index) \
+                if f.index != index]
+    
+    def zoneValues(self, pos):
+        return set([f.value for f in self.zone(pos) if f.value != ' '])
+    
+    def zoneCheck(self, pos, char):
+        """ returns True when no other empty field in the zone of pos has
+            the value 'char' as a candidate """
+        for f in self.zone(pos):
+            if f.value == ' ' and char in f.candidates:
+                return False
         return True
 
-    saved = puzzle[pos]
-    puzzle[pos] = ' '
-    ret = legal(puzzle, pos, x)
-    puzzle[pos] = saved
-    return ret
+    def zoneClear(self, pos, char):
+        for f in self.zone(pos):
+            f.candidates.discard(char)
 
-def build_candidates(puzzle):
-    candidates = []
-    for pos in xrange(9*9):
-        cand_list = ''
-        if puzzle[pos] == ' ':
-            for digit in "123456789":
-                if legal_candidate(puzzle, pos, digit):
-                   cand_list += digit
+    def pretty(self):
+        for i in range(9):
+            print " ".join([str(f) for f in self.fields[i*9 : i*9+9]])
+
+    def solved(self):
+        for field in self.fields:
+            if not field.solved():
+                return False
+        return True
+
+    def elim1(self):
+        solved = 0
+        for field in self.fields:
+            solved += field.elim1()        
+        return solved
+
+    def elim2(self):
+        solved = 0
+        for field in self.fields:
+            solved += field.elim2()
+        return solved
+
+    def findTrialField(self):
+        f = None
+        for field in self.fields:
+            if field.solved():
+                continue
+            if f == None or len(field.candidates) < len(f.candidates):
+                f = field
+        return f
+
+    def solve(self):
+        while True:
+            solved = 0
+            solved += self.elim1()
+            solved += self.elim2()
+            if solved == 0:
+                break
+        if self.solved():
+            return self
         else:
-            cand_list += puzzle[pos]
-        candidates.append(cand_list)
+            # find field with the lowest number of candidates 
+            field = self.findTrialField()
+            # if lowest number of candidates is zero, abort, wrong path
+            if field == None or len(field.candidates) == 0:
+                return None
+            # for each such candidate, set it as a solution and try to solve
+            c = field.candidates.copy()
+            field.candidates.clear()
+            for value in c:
+                #print "Trying value %s for field %d" % (value, field.index)
+                field.value = value
+                C = self.copy()
+                try:
+                    C = C.solve()
+                    if C != None:
+                        return C
+                except InvalidPuzzle:
+                    #print "Invalid!"
+                    pass
+                del C
+        return None
 
-    return candidates
-
-def eliminate(candidates):
-    elimination_counter = 1
-    while elimination_counter > 0:
-        elimination_counter = 0
-        for pos in xrange(9*9):
-            if len(candidates[pos]) > 1:
-                for digit in candidates[pos]:
-                    if not legal_candidate(candidates, pos, digit):
-                        candidates[pos] = candidates[pos].replace(digit,'')
-                        elimination_counter += 1
-                        if len(candidates[pos]) == 0:
-                            return True
-    return False
-
-def print_candidates(puzzle):
-    tab = 9 # max len(candidates[i])+1
-    if verify(puzzle):
-        print "Solution:"
-        tab = 0
-    for i in xrange(81):
-        nCand = len(puzzle[i])
-        print "".join(puzzle[i]), " " * (tab-nCand),
-        if i % 9 == 8:
-            print ""
-
-def gen_guesses(candidates):
-# find pos with smallest number of candidates
-    ret = []
-    pos = -1
-    pos_len = 9
-    for cand_list in candidates:
-        if len(cand_list) == 1:
-            continue
-        if len(cand_list) < pos_len:
-            pos_len = len(cand_list)
-            pos = candidates.index(cand_list)
-        if pos_len == 2:
-            break
-    if pos == -1:
-        raise StopIteration()
-    # create list of candidates from that position by
-    # copying candidate and setting individial guess values
-    for digit in candidates[pos]:
-        guess = candidates[:]
-        guess[pos] = digit
-        # eliminate other occurences of guessed value in row, col, cell
-        #candidates[pos] = candidates[pos].replace(digit,'')
-        eliminate(guess)
-
-        #ret.append([guess, pos])
-        yield [guess, pos]
-    raise StopIteration()
-
-def find_solutions(cand):
-    ret = []
-    for entry in gen_guesses(cand):
-        guess = entry[0]
-        if eliminate(guess) == True: # unsolvable?
-            continue
-        if verify(guess) and ret.count(guess) == 0:
-            ret.append(guess)
-        else:
-            sols = find_solutions(guess)
-            for X in sols:
-                if ret.count(X) == 0:
-                    ret.append(X)
-    return ret
-
-def solve(puzzle):
-    cand = build_candidates(puzzle)
-    eliminate(cand)
-    if verify(cand):
-        print_candidates(cand)
-        return
-    else:
-        print "Solving puzzle:"
-        print_candidates(cand)
-        solutions = find_solutions(cand)
-        for sol in solutions:
-            print_candidates(sol)
-
-def verify(puzzle): 
-    # check if any field has more than one or less than one candidate
-    if len([c for c in puzzle if len(c)!=1]) > 0:
-        return False
-    # check if all positions are valid
-    for pos in xrange(9*9):
-        if not legal_candidate(puzzle, pos, puzzle[pos]):
-            return False
-    return True
+def solvePuzzle(puzzle_lines):
+    puzzle = Puzzle(puzzle_lines)
+    solution = puzzle.solve()
+    if solution: 
+       solution.pretty()
 
 def readPuzzle(filename):
     puzzle = []
@@ -151,19 +186,59 @@ def readPuzzle(filename):
 
 def runTop95():
     print "Running Top95 Benchmark.."
-    with open('puzzles/top95.txt') as f:
+    with open('puzzles/top10.txt') as f:
+        i = 0
         for line in f:
             puzzle = list(line.replace('.',' '))
-            solve(puzzle)
+            i += 1
+            print "%d ..." % i
+            solvePuzzle(puzzle)
+
     
 def main():
     if len(sys.argv) < 2:
         # no puzzle file name given, run Top95
-        runTop95()
+        if True:
+            runTop95()
+        else:
+            unittest.main()
     else:
         filename = sys.argv[1]
         puzzle = readPuzzle(filename)
-        solve(puzzle)
+        solvePuzzle(puzzle)
+
+class PuzzleTest(unittest.TestCase):
+    P1 = '38 6     '\
+         '  9      '\
+         ' 2  3 51 '\
+         '     5   '\
+         ' 3  1  6 '\
+         '   4     '\
+         ' 17 5  8 '\
+         '      9  '\
+         '     7 32'
+
+    def testZoneValues(self):
+        p1 = Puzzle(self.P1)
+        self.assertEqual(p1.zoneValues(0), set('8692'))
+        self.assertEqual(p1.zoneValues(1), set('362319'))
+        self.assertEqual(p1.zoneValues(2), set('386927'))
+        self.assertEqual(p1.zoneValues(3), set('3843'))
+        self.assertEqual(p1.zoneValues(4), set('386315'))
+        self.assertEqual(p1.zoneValues(8), set('386512'))
+        self.assertEqual(p1.zoneValues(27), set('35'))
+        self.assertEqual(p1.zoneValues(40), set('365435'))
+        self.assertEqual(p1.zoneValues(45), set('34'))
+        self.assertEqual(p1.zoneValues(79), set('289761'))
+        self.assertEqual(p1.zoneValues(80), set('3987'))
+
+    def testZoneCandidates(self):
+        p1 = Puzzle(self.P1)
+        self.assertEqual(p1.zoneCheck(2, '1'), False)
+        self.assertEqual(p1.zoneCheck(2, '2'), False)
+        self.assertEqual(p1.zoneCheck(2, '5'), False)
+        #self.assertEqual(p1.zoneCheck(12, '5'), True)
+        #self.assertEqual(p1.zoneCheck(65, '3'), True)
 
 if __name__ == '__main__':
     main()
