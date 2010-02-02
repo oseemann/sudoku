@@ -1,12 +1,21 @@
 #!/usr/bin/python
 # vim: set ts=4 sw=4 smartindent:
+#
+# My own Sudoku solver.
+# Solves the top95 hardest puzzles (http://magictour.free.fr/top95)
+# in less than a minute. Still rather slow, but hey, at least it solves
+# them all.
+# Performance can be improved by not using strings to store the candidates
+# but maybe an integer representation.
+#
+# Author: Oliver Seemann <os (at) oebs.net>
+#
+# This code is in the public domain. 
 
-from __future__ import with_statement
 import sys
 import re
 import pdb
 import copy
-import unittest
 
 # Exceptions 
 class InvalidPuzzle: pass
